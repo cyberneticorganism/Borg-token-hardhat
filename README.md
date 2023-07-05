@@ -1,4 +1,4 @@
-# Sample Hardhat Project
+# Cyborg Token (BORG)
 
 This is Cyborgs Token, getting ready for presale. A test for that contract, and a script that deploys that contract are also included.
 

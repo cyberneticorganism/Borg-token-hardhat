@@ -6,22 +6,23 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/draft-ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 contract Cyborg is ERC20, ERC20Burnable, Ownable, ERC20Permit, ERC20Votes {
-    uint256 public taxPercentage = 5;
     address payable devWallet;
-    constructor(uint256 initialSupply) ERC20("Cyborg", "BORG") ERC20Permit("Cyborg") {
-        _mint(msg.sender, initialSupply * 10 ** decimals());
+    mapping(address => bool) private isExcludedFromTax;
+
+    uint256 public buyTax = 0;
+    uint256 public sellTax = 0;
+    uint256 public constant MAX_TAX = 500; // Represents 5% (basis points)
+
+    constructor() ERC20("Cyborg", "BORG") ERC20Permit("Cyborg") {
+        _mint(msg.sender, 214000000000000 * 10 ** decimals());
         devWallet = payable(msg.sender);
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
-    }
-
-    function updateTax(uint256 newTaxPercent) public onlyOwner returns (bool) {
-        taxPercentage = newTaxPercent;
-        return true;
     }
 
     // The following functions are overrides required by Solidity.
@@ -47,31 +48,69 @@ contract Cyborg is ERC20, ERC20Burnable, Ownable, ERC20Permit, ERC20Votes {
         super._burn(account, amount);
     }
 
-    function calculateTax(uint256 amount) private view returns (uint256) {
-        return (amount * taxPercentage) / 100; //Calculate 
+    function calculateBuyTax(uint256 _amount) internal view returns (uint256) {
+        return (_amount * buyTax) / 10000; // Use basis points for percentage calculation
     }
 
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
-        uint256 tax = calculateTax(amount);
-        uint256 amountAfterTax = amount - tax;
-        super.transfer(recipient, amountAfterTax); // Transfer the amount after deducting tax
+    function calculateSellTax(uint256 _amount) internal view returns (uint256) {
+        return (_amount * sellTax) / 10000; // Use basis points for percentage calculation
+    }
 
-        if (tax > 0) {
-            super.transfer(address(devWallet), tax); // Transfer the tax to the contract address
+    function setBuyTax(uint256 _buyTax) external onlyOwner {
+        require(_buyTax <= MAX_TAX, "Buy tax exceeds the maximum limit.");
+        buyTax = _buyTax;
+    }
+
+    function setSellTax(uint256 _sellTax) external onlyOwner {
+        require(_sellTax <= MAX_TAX, "Sell tax exceeds the maximum limit.");
+        sellTax = _sellTax;
+    }
+
+    function excludeFromTax(address _account) external onlyOwner {
+        isExcludedFromTax[_account] = true;
+    }
+
+    function includeInTax(address _account) external onlyOwner {
+        isExcludedFromTax[_account] = false;
+    }
+
+
+
+    function transfer(address recipient, uint256 amount) public override returns (bool) {
+        if (!isExcludedFromTax[recipient] && amount > maxPurchaseAmount()) {
+            revert("Transfer amount exceeds the max purchase limit.");
+        }
+
+        uint256 taxAmount = calculateBuyTax(amount);
+        uint256 newAmount = amount - taxAmount;
+
+        super.transfer(recipient, newAmount);
+
+        if (taxAmount > 0) {
+          super.transfer(address(this), taxAmount);
         }
 
         return true;
     }
 
     function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
-        uint256 tax = calculateTax(amount);
-        uint256 amountAfterTax = amount - tax;
-        super.transferFrom(sender, recipient, amountAfterTax); // Transfer the amount after deducting tax
+        if (!isExcludedFromTax[sender] && amount > maxPurchaseAmount()) {
+            revert("Transfer amount exceeds the max purchase limit.");
+        }
 
-        if (tax > 0) {
-            super.transferFrom(sender, address(this), tax); // Transfer the tax to the contract address
+        uint256 taxAmount = calculateSellTax(amount);
+        uint256 newAmount = amount - taxAmount;
+
+        super.transferFrom(sender, recipient, newAmount);
+
+        if (taxAmount > 0) {
+            super.transferFrom(sender, address(this), taxAmount);
         }
 
         return true;
+    }
+
+    function maxPurchaseAmount() public view returns (uint256) {
+        return IERC20(address(this)).totalSupply() / 200; // 0.5% of total supply
     }
 }

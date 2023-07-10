@@ -9,7 +9,7 @@ describe("Cyborg", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
-  const initialSupply = 10000;
+  // const initialSupply = 10000;
 
   async function deployBorgTokenFixture() {
     
@@ -17,7 +17,7 @@ describe("Cyborg", function () {
     const [owner, otherAccount] = await ethers.getSigners();
 
     const Borg = await ethers.getContractFactory("Cyborg");
-    const token = await Borg.deploy(initialSupply);
+    const token = await Borg.deploy();
 
     return { token, owner, otherAccount };
   }
@@ -39,10 +39,10 @@ describe("Cyborg", function () {
       
         await token.transfer(otherAccount.address, 50);
         const addr1Balance = await token.balanceOf(otherAccount.address);
-        expect(addr1Balance).to.equal(48);
+        expect(addr1Balance).to.equal(50);
 
         const ownerNewBalance = await token.balanceOf(owner.address);
-        expect(ownerNewBalance).to.equal(ownerBalance - BigInt(48) );
+        expect(ownerNewBalance).to.equal(ownerBalance - BigInt(50) );
     });
 
     it("Should fail if sender doesnt have enough tokens", async function () {
@@ -52,8 +52,8 @@ describe("Cyborg", function () {
 
       // Transfer 10001 GLD tokens from owner to otherAccount
       await expect(
-       token.transfer(otherAccount.address, ownerBalance + BigInt(20))
-      ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
+        token.transfer(otherAccount.address, ownerBalance + BigInt(20))
+      ).to.be.revertedWith("Transfer amount exceeds the max purchase limit.");
     });        
   })
 });

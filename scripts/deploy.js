@@ -7,10 +7,10 @@
 const hre = require("hardhat");
 
 async function main() {
-  const initialSupply = 10000;
+  // const initialSupply = 10000;
 
   const BorgToken = await hre.ethers.getContractFactory("Cyborg");
-  const token = await BorgToken.deploy(initialSupply);
+  const token = await BorgToken.deploy();
 
   await token.waitForDeployment();
 

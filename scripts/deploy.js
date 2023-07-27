@@ -28,7 +28,7 @@ async function main() {
   const token = await BorgToken.deploy();
   await token.waitForDeployment();
   // tokenAddress = token.address();
-  const poolAddress = await factory.createPool(token.target, wethAddress);
+  const poolAddress = await factory.createPool(token.target, wethAddress, 3000);
   await token.setUniswapPair(poolAddress);
 
   const totalSupply = await token.totalSupply()
